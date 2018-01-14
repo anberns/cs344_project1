@@ -1,0 +1,391 @@
+#!/bin/bash
+
+# global variables
+matrix1="tempMatrix$$"
+rows="tempRows$$"
+cols="tempCols$$"
+rows2="tempRows2$$"
+cols2="tempCols2$$"
+temp="temp$$"
+temp2="temp2$$"
+temp3="temp3$$"
+
+# trap signals
+trap "rm -f {$matrix1,$rows,$cols,$rows2,$cols2,$temp,$temp2,$temp3}; echo 'signal trapped'; exit 1" INT HUP TERM
+
+# read matrix from file or stdin
+MatrixSource() {
+	if [ -z "$1" ]
+	then
+		echo "Enter your matrix. Hit CTRL-D when done."
+		cat > "$matrix1"
+	else
+		cat $1 > "$matrix1"
+	fi
+}
+
+# error handling for one arg functions, help from stack overflow with
+# -f, -z testing flags
+errHand1() {
+	if [ -f "$2" ]
+	then
+		echo "too many arguments" 1>&2
+		exit 1	
+	elif ! [ -f "$1" ]
+	then
+		if ! [ -z "$1" ]
+		then
+			echo "invalid file name" 1>&2
+			exit 1
+		fi
+	fi
+}
+
+# Dims function
+dims() {
+	# check for errors
+	errHand1 $1 $2
+	
+	# check for file or stdin
+	MatrixSource $1	
+
+	# get rows
+	while read myLine
+	do
+		(( rows++ ))
+	done < $matrix1
+
+	# get cols
+	read oneLine < $matrix1
+	for i in $oneLine
+	do
+		(( cols++ ))
+	done
+
+	# print
+	printf "%s %s\n" $rows $cols >> $temp2
+	cat $temp2
+}
+
+# transpose function
+transpose() {
+	# check for errors
+	errHand1 $1 $2
+	
+	# check for file or stdin
+	MatrixSource $1	
+
+	# get dimensions
+	while read myLine
+	do
+		(( rows++ ))
+	done < $matrix1
+
+	read oneLine < $matrix1
+	for i in $oneLine
+	do
+		(( cols++ ))
+	done
+
+	#transpose
+	i=0
+	j=0
+	curr=1
+	next=$(($cols))
+
+	cat $matrix1 | tr '\n' '\t' > $temp
+	#cat $temp
+	while test $i -ne $cols
+	do
+		while test $j -ne $rows
+		do
+			cut -f $curr $temp > $temp3
+			cat $temp3 >> $temp2
+			#echo  -e -n "\t" >> $temp2
+			(( j++ ))
+			curr=$(($curr + $next))
+		done
+		j=0
+		(( i++ ))
+		curr=$(($i + 1))
+	done
+	cat $temp2 | tr '\n' '\t' > $temp
+	echo -n "" > $temp2 # output file
+	m=1
+	read anotherLine < $temp
+	for k in $anotherLine
+	do
+		if [ $m -eq $rows ]
+		then
+			printf "%s\n" $k >> $temp2
+			m=1
+		else
+			printf "%s\t" $k >> $temp2
+			(( m++ ))
+		fi
+	done
+	cat $temp2
+}
+
+# mean function
+mean() {
+	# check for errors
+	errHand1 $1 $2
+	
+	# check for file or stdin
+	MatrixSource $1	
+
+	# get transpose in single line
+	while read myLine
+	do
+		(( rows++ ))
+	done < $matrix1
+
+	read oneLine < $matrix1
+	for i in $oneLine
+	do
+		(( cols++ ))
+	done
+
+	#transpose
+	i=0
+	j=0
+	curr=1
+	next=$(($cols))
+
+	cat $matrix1 | tr '\n' '\t' > $temp
+	#cat $temp
+	while test $i -ne $cols
+	do
+		while test $j -ne $rows
+		do
+			cut -f $curr $temp > $temp3
+			cat $temp3 >> $temp2
+			(( j++ ))
+			curr=$(($curr + $next))
+		done
+		j=0
+		(( i++ ))
+		curr=$(($i + 1))
+	done
+	cat $temp2 | tr '\n' '\t' > $temp
+
+	# process each column
+	m=1
+	sum=0
+	tCount=0
+	echo -n "" > $temp2 #output file
+	read aLine < $temp
+	for k in $aLine
+	do
+		(( tCount++ ))
+		if [ $m -eq $rows ]
+		then
+			sum=$(( $sum + $k ))
+			if [ $tCount -eq $(( $rows * $cols )) ]
+			then
+				printf "%s\n" $(( ($sum + ($rows/2)*( ($sum>0)*2 - 1 )) / $rows )) >> $temp2
+			else
+				printf "%s\t" $(( ($sum + ($rows/2)*( ($sum>0)*2 - 1 )) / $rows )) >> $temp2
+				sum=0
+				m=1
+			fi
+		else
+			sum=$(( $sum + $k ))
+			(( m++ ))
+		fi
+	done
+	cat $temp2
+}
+
+# add function
+add() {
+	# check for file errors
+	if [ $# -ne 2 ]
+	then
+		echo "incorrect number of arguments" 1>&2
+		exit 1
+	elif ! [ -f $1 ]
+	then
+		echo "1st file name incorrect" 1>&2
+		exit 1
+	elif ! [ -f $2 ]
+	then
+		echo "2st file name incorrect" 1>&2
+		exit 1
+	fi
+
+	# check dimensions
+	while read myLine
+	do
+		(( rows++ ))
+	done < $1
+
+	read oneLine < $1
+	for i in $oneLine
+	do
+		(( cols++ ))
+	done
+
+	while read myLine
+	do
+		(( rows2++ ))
+	done < $2
+
+	read oneLine < $2
+	for i in $oneLine
+	do
+		(( cols2++ ))
+	done
+	if [ $rows -ne $rows2 ] || [ $cols -ne $cols2 ]
+	then
+		echo "incompatible dimensions" 1>&2
+		exit 1
+	fi
+	
+	# add
+	i=1
+	count=0
+	sum=0
+	echo -n "" > $temp3
+	while test $count -ne $rows
+	do
+		cat $1 | tail -n $(( $rows - $count )) | head -n 1 > $temp
+		cat $2 | tail -n $(( $rows - $count )) | head -n 1 > $temp2
+		while test $(( $i -1 )) -ne $cols
+		do
+			add1=$( cut -f $i $temp )  
+			add2=$( cut -f $i $temp2)			
+			if [ $i -ne $cols ]
+			then
+				printf "%s\t" $(( $add1 + $add2 )) >> $temp3
+				(( i++ ))
+			else
+				printf "%s\n" $(( $add1 + $add2 )) >> $temp3
+				(( i++ ))
+			fi
+		done
+		i=1
+		(( count++ ))
+	done
+	cat $temp3
+}
+
+# mutliply function
+multiply() {
+	# check for file errors
+	if [ $# -ne 2 ]
+	then
+		echo "incorrect number of arguments" 1>&2
+		exit 1
+	elif ! [ -f $1 ]
+	then
+		echo "1st file name incorrect" 1>&2
+		exit 1
+	elif ! [ -f $2 ]
+	then
+		echo "2st file name incorrect" 1>&2
+		exit 1
+	fi
+
+	# check dimensions
+	while read myLine
+	do
+		(( rows++ ))
+	done < $1
+
+	read oneLine < $1
+	for i in $oneLine
+	do
+		(( cols++ ))
+	done
+
+	while read myLine
+	do
+		(( rows2++ ))
+	done < $2
+
+	read oneLine < $2
+	for i in $oneLine
+	do
+		(( cols2++ ))
+	done
+	if [ $rows -ne $cols2 ] || [ $cols -ne $rows2 ]
+	then
+		echo "incompatible dimensions" 1>&2
+		exit 1
+	fi
+	
+	#transpose matrix2
+	i=0
+	j=0
+	curr=1
+	next=$(($cols2))
+
+	cat $2 | tr '\n' '\t' > $temp
+
+	while test $i -ne $cols2
+	do
+		while test $j -ne $rows2
+		do
+			cut -f $curr $temp > $temp3
+			cat $temp3 >> $temp2
+			(( j++ ))
+			curr=$(($curr + $next))
+		done
+		j=0
+		(( i++ ))
+		curr=$(($i + 1))
+	done
+	cat $temp2 | tr '\n' '\t' > $temp3
+
+	# multiply
+	i=1
+	j=1
+	count=0
+	processed=0	
+	sum=0
+	echo -n "" > $temp2
+	while test $count -ne $rows
+	do
+		cat $1 | tail -n $(( $rows - $count )) | head -n 1 > $temp
+		while test $(( $j -1 )) -ne $cols2
+		do	
+			while test $(( $i -1 )) -ne $cols
+			do
+				fact1=$( cut -f $i $temp )  
+				fact2=$( cut -f $(( $i + ( $processed * $rows2) )) $temp3 )			
+				sum=$(( $sum + $fact1 * $fact2 ))
+				(( i++ ))
+			done
+			if [ $(( $processed + 1 )) -ne $cols2 ]
+			then
+				printf "%s\t" $sum >> $temp2
+				i=1
+				sum=0
+				(( processed++ ))
+				(( j++ ))
+			else
+				printf "%s\n" $sum >> $temp2
+				i=1
+				sum=0
+				(( processed++ ))
+				(( j++ ))
+			fi
+		done
+		i=1
+		j=1
+		processed=0
+		(( count++ ))
+		sum=0
+	done
+	cat $temp2
+}
+	
+# call appropriate function
+$1 "${@:2}"
+
+# delete temp files
+rm -f {$matrix1,$rows,$cols,$rows2,$cols2,$temp,$temp2,$temp3}
+
+exit 0
