@@ -1,5 +1,5 @@
 #!/bin/bash
-exec > >(tee -a ./p1grading_result) 2>&1
+exec > >(tee -a ./p1grading_result) 2>&1 # Copy all output to ./p1grading_result
 
 # Parse any args
 nocolor=1
@@ -12,6 +12,16 @@ do
   shift
 done
 
+###############################################################################
+# Begin helper functions
+#   generate() - Generates a matrix
+#   perror() - prints error messages
+#   failed() - prints failed test message
+#   passed() - prints passed test message
+#   result() - if $? == 0, calls passed(), otherwise calls failed()
+#   comment() - prints comment to output
+#   unit() - prints unit test headers
+###############################################################################
 
 function generate(){
   # NAME
@@ -147,6 +157,15 @@ function unit(){
   comment "(running score = $score/$total)"
 }
 
+
+
+###############################################################################
+# End helper functions                                                        #
+# Begin script                                                                #
+###############################################################################
+
+# Print banner
+
 if [ $nocolor -eq 0 ]
 then
   echo -e "┏┓ ┏━╸┏━╸╻┏┓╻┏┓╻╻┏┓╻┏━╸   ┏┳┓┏━┓╺┳╸┏━┓╻╻ ╻   ╺┳╸┏━╸┏━┓╺┳╸\n┣┻┓┣╸ ┃╺┓┃┃┗┫┃┗┫┃┃┗┫┃╺┓   ┃┃┃┣━┫ ┃ ┣┳┛┃┏╋┛    ┃ ┣╸ ┗━┓ ┃ \n┗━┛┗━╸┗━┛╹╹ ╹╹ ╹╹╹ ╹┗━┛   ╹ ╹╹ ╹ ╹ ╹┗╸╹╹ ╹    ╹ ┗━╸┗━┛ ╹"
@@ -154,67 +173,70 @@ else
   echo -e "[0;1;35;95m┏┓[0m [0;1;31;91m┏[0;1;33;93m━╸[0;1;32;92m┏━[0;1;36;96m╸╻[0;1;34;94m┏┓[0;1;35;95m╻┏[0;1;31;91m┓╻[0;1;33;93m╻┏[0;1;32;92m┓╻[0;1;36;96m┏━[0;1;34;94m╸[0m   [0;1;31;91m┏┳[0;1;33;93m┓┏[0;1;32;92m━┓[0;1;36;96m╺┳[0;1;34;94m╸┏[0;1;35;95m━┓[0;1;31;91m╻╻[0m [0;1;33;93m╻[0m   [0;1;36;96m╺[0;1;34;94m┳╸[0;1;35;95m┏━[0;1;31;91m╸┏[0;1;33;93m━┓[0;1;32;92m╺┳[0;1;36;96m╸[0m\n[0;1;31;91m┣┻[0;1;33;93m┓┣[0;1;32;92m╸[0m [0;1;36;96m┃╺[0;1;34;94m┓┃[0;1;35;95m┃┗[0;1;31;91m┫┃[0;1;33;93m┗┫[0;1;32;92m┃┃[0;1;36;96m┗┫[0;1;34;94m┃╺[0;1;35;95m┓[0m   [0;1;33;93m┃┃[0;1;32;92m┃┣[0;1;36;96m━┫[0m [0;1;34;94m┃[0m [0;1;35;95m┣[0;1;31;91m┳┛[0;1;33;93m┃┏[0;1;32;92m╋┛[0m    [0;1;35;95m┃[0m [0;1;31;91m┣╸[0m [0;1;33;93m┗[0;1;32;92m━┓[0m [0;1;36;96m┃[0m \n[0;1;33;93m┗━[0;1;32;92m┛┗[0;1;36;96m━╸[0;1;34;94m┗━[0;1;35;95m┛╹[0;1;31;91m╹[0m [0;1;33;93m╹╹[0m [0;1;32;92m╹[0;1;36;96m╹╹[0m [0;1;34;94m╹[0;1;35;95m┗━[0;1;31;91m┛[0m   [0;1;32;92m╹[0m [0;1;36;96m╹╹[0m [0;1;34;94m╹[0m [0;1;35;95m╹[0m [0;1;31;91m╹[0;1;33;93m┗╸[0;1;32;92m╹╹[0m [0;1;36;96m╹[0m    [0;1;31;91m╹[0m [0;1;33;93m┗━[0;1;32;92m╸┗[0;1;36;96m━┛[0m [0;1;34;94m╹[0m "
 fi
 
+# Initialize score and total variables
 score=0
 total=0
 
+# Check for existence/executability of matrix file
 if [ ! -r matrix ] || [ ! -x matrix ]
-# Check for existence of matrix file
 then
   perror "matrix: permission error"
-
-  exit $score
+  exit 0
 fi
 
-tmp=($(mktemp --tmpdir p1grading_XXXXX) $(mktemp --tmpdir p1grading_XXXXX) $(mktemp --tmpdir p1grading_XXXXX))
+tmp1="$(mktemp --tmpdir p1grading_XXXXX)"
+tmp2="$(mktemp --tmpdir p1grading_XXXXX)"
+tmp3="$(mktemp --tmpdir p1grading_XXXXX)"
+tmp4="$(mktemp --tmpdir p1grading_XXXXX)"
 
+###############################################################################
+# Begin unit tests                                                            #
+###############################################################################
 
-##########################################################
-# START UNIT TESTS                                       #
-##########################################################
+unit "error messages"
 
-unit "basic errors"
-
-$(./matrix dims ${tmp[0]} ${tmp[0]} 1>${tmp[1]} 2>${tmp[2]})
-[ $? -ne 0 ] && [ -s ${tmp[2]} ] && [ ! -s ${tmp[1]} ] 
+$(./matrix dims "$tmp1" "$tmp1" 1>"$tmp2" 2>"$tmp3")
+[ $? -ne 0 ] && [ -s "$tmp3" ] && [ ! -s "$tmp2" ] 
 result "too many args to matrix dims" 1
 
-$(./matrix add  1>${tmp[1]} 2>${tmp[2]})
-[ $? -ne 0 ] && [ -s ${tmp[2]} ] && [ ! -s ${tmp[1]} ]
+$(./matrix add  1>"$tmp2" 2>"$tmp3")
+[ $? -ne 0 ] && [ -s "$tmp3" ] && [ ! -s "$tmp2" ]
 result "no args to matrix add" 1
 
-generate 5 6 10 > ${tmp[0]}
+generate 5 6 10 > "$tmp1"
 
-$(./matrix multiply ${tmp[0]} ${tmp[0]} 1>${tmp[1]} 2>${tmp[2]})
-[ $? -ne 0 ] && [ -s ${tmp[2]} ] && [ ! -s ${tmp[1]} ]
+$(./matrix multiply "$tmp1" "$tmp1" 1>"$tmp2" 2>"$tmp3")
+[ $? -ne 0 ] && [ -s "$tmp3" ] && [ ! -s "$tmp2" ]
 result "multiplying incompatible matrices" 5
 
-generate 6 5 10 > ${tmp[1]}
-$(./matrix add ${tmp[0]} ${tmp[1]} 1>${tmp[1]} 2>${tmp[2]})
-[ $? -ne 0 ] && [ -s ${tmp[2]} ] && [ ! -s ${tmp[1]} ]
+generate 6 5 10 > "$tmp2"
+$(./matrix add "$tmp1" "$tmp2" 1>"$tmp2" 2>"$tmp3")
+[ $? -ne 0 ] && [ -s "$tmp3" ] && [ ! -s "$tmp2" ]
 result "adding incompatible matrices" 4
 
-chmod -r ${tmp[0]}
-$(./matrix transpose ${tmp[0]} 1>${tmp[1]} 2>${tmp[2]})
-[ $? -ne 0 ] && [ -s ${tmp[2]} ] && [ ! -s ${tmp[1]} ]
+chmod -r "$tmp1"
+$(./matrix transpose "$tmp1" 1>"$tmp2" 2>"$tmp3")
+[ $? -ne 0 ] && [ -s "$tmp3" ] && [ ! -s "$tmp2" ]
 result "tranpose unreadable file" 2
-chmod +r ${tmp[0]}
+chmod +r "$tmp1"
 
-$(./matrix dims $(mktemp -u) 1>${tmp[1]} 2>${tmp[2]})
-[ $? -ne 0 ] && [ -s ${tmp[2]} ] && [ ! -s ${tmp[1]} ]
+$(./matrix dims $(mktemp -u) 1>"$tmp2" 2>"$tmp3")
+[ $? -ne 0 ] && [ -s "$tmp3" ] && [ ! -s "$tmp2" ]
 result "get dims of nonexistent file" 1
 
-$(./matrix badcommand 1>${tmp[1]} 2>${tmp[2]})
-[ $? -ne 0 ] && [ -s ${tmp[2]} ] && [ ! -s ${tmp[1]} ]
+$(./matrix badcommand 1>"$tmp2" 2>"$tmp3")
+[ $? -ne 0 ] && [ -s "$tmp3" ] && [ ! -s "$tmp2" ]
 result "matrix badcommand" 1
 
+###############################################################################
 
-unit "matrix dims test"
+unit "matrix dims tests"
 
 for a in {0..2}
 do
   (( rows = RANDOM % 50 + 51 ))
   (( cols = RANDOM % 50 + 51 ))
-  dims=$(generate $rows $cols 100 | ./matrix dims)
+  dims="$(generate $rows $cols 100 | ./matrix dims)"
   
   [[ "$dims" == "$rows $cols" ]]
   result "Stdin: (\"$dims\" == \"$rows $cols\")" 3
@@ -225,13 +247,15 @@ do
   (( rows = RANDOM % 50 + 51 ))
   (( cols = RANDOM % 50 + 51 ))
 
-  generate $rows $cols 100 > ${tmp[0]}
+  generate $rows $cols 100 > "$tmp1"
   
-  dims=$(./matrix dims ${tmp[0]})
+  dims="$(./matrix dims $tmp1)"
   
   [[ "$dims" == "$rows $cols" ]]
   result "File input: (\"$dims\" == \"$rows $cols\")" 3
 done
+
+###############################################################################
 
 unit "matrix transpose hardcoded test"
 
@@ -272,11 +296,13 @@ m2="-93	50	-61	52	55	23	-67	65	-49	-45	-91	31	-12	0	10	80	21	79	24	-40
 45	-49	20	-27	78	-50	-31	15	22	52	-92	91	-94	-3	87	35	19	73	-98	31
 -22	41	89	-9	-19	17	11	-15	-94	-17	-46	37	26	-91	-27	61	-81	80	14	-79"
 
-echo "$m1" > ${tmp[0]}
-echo "$m2" > ${tmp[1]}
+echo "$m1" > "$tmp1"
+echo "$m2" > "$tmp2"
 
-[[ "$m1" == "$(./matrix transpose ${tmp[1]})" ]] && [[ "$m2" == "$(./matrix transpose ${tmp[0]})" ]]
+[[ "$m1" == "$(./matrix transpose $tmp2)" ]] && [[ "$m2" == "$(./matrix transpose $tmp1)" ]]
 result "m1 == T(m2) and T(m1) == m2" 10
+
+###############################################################################
 
 unit "matrix transpose involution test"
 
@@ -286,12 +312,13 @@ do
   (( cols = RANDOM % 50 + 51 ))
 
   m1="$(generate $rows $cols 100)"
-  echo "$m1" > $tmp
+  echo "$m1" > "$tmp1"
 
-  [[ "$m1" == "$(./matrix transpose $tmp | ./matrix transpose)" ]]
+  [[ "$m1" == "$(./matrix transpose $tmp1 | ./matrix transpose)" ]]
   result "m$a == T(T(m$a))" 5
 done
 
+###############################################################################
 
 unit "matrix mean test"
 
@@ -340,40 +367,44 @@ m2="-10	16	13	4	2	-4"
 
 
 
-generate 5 10 z > $tmp
-[[ "$(generate 1 10 z)" == "$(./matrix mean < $tmp)" ]]
+generate 5 10 z > "$tmp1"
+[[ "$(generate 1 10 z)" == "$(./matrix mean < $tmp1)" ]]
 result "zero matrix" 2
 
-generate 5 10 o > $tmp
-[[ "$(generate 1 10 o)" == "$(./matrix mean $tmp)" ]]
+generate 5 10 o > "$tmp1"
+[[ "$(generate 1 10 o)" == "$(./matrix mean $tmp1)" ]]
 result "ones matrix" 5
 
-generate 5 10 d > $tmp
-[[ "$(generate 1 10 z)" == "$(./matrix mean $tmp)" ]]
+generate 5 10 d > "$tmp1"
+[[ "$(generate 1 10 z)" == "$(./matrix mean $tmp1)" ]]
 result "identity matrix" 5
 
-echo "$m1" > $tmp
-[[ "$m2" == "$(./matrix mean $tmp)" ]]
+echo "$m1" > "$tmp1"
+[[ "$m2" == "$(./matrix mean $tmp1)" ]]
 result "hardcoded matrix" 15
+
+###############################################################################
 
 unit "matrix add test"
 
 bigz="$(generate 30 20 z)"
-[[ "$bigz" == "$(./matrix add <(echo "$bigz") <(echo "$bigz"))" ]]
+echo "$bigz" > "$tmp1"
+[[ "$bigz" == "$(./matrix add $tmp1 $tmp1)" ]]
 result "0 + 0 == 0" 2
 
 bigr="$(generate 30 20 100)"
-[[ "$bigr" == "$(./matrix add <(echo "$bigr") <(echo "$bigz"))" ]]
+echo "$bigr" > "$tmp2"
+[[ "$bigr" == "$(./matrix add $tmp2 $tmp1)" ]]
 result "X + 0 == X" 5
 
-[[ "$bigr" == "$(./matrix add <(echo "$bigz") <(echo "$bigr"))" ]]
+[[ "$bigr" == "$(./matrix add $tmp1 $tmp2)" ]]
 result "0 + X == X" 5
 
 m1="$(generate 10 10 100)"
 m2="$(generate 10 10 100)"
-echo "$m1" > ${tmp[0]}
-echo "$m2" > ${tmp[1]}
-[[ "$(./matrix add ${tmp[0]} ${tmp[1]})" == "$(./matrix add ${tmp[1]} ${tmp[0]})" ]]  
+echo "$m1" > "$tmp1"
+echo "$m2" > "$tmp2"
+[[ "$(./matrix add $tmp1 $tmp2)" == "$(./matrix add $tmp2 $tmp1)" ]]  
 result "A + B  == B + A"
 
 m1="68	86	-22	95	-97	44	68	-98	70	-65	69	94	-5	-84	3	83	71	31	-10	0
@@ -396,6 +427,7 @@ m1="68	86	-22	95	-97	44	68	-98	70	-65	69	94	-5	-84	3	83	71	31	-10	0
 -28	17	90	-42	-35	87	-2	-47	94	-35	78	-33	59	-22	8	-5	0	-36	33	-27
 -92	75	91	-97	19	76	33	20	-10	-80	-20	3	98	-35	75	-28	-48	-73	-68	72
 17	45	43	-90	-12	4	86	-49	88	-92	39	-18	5	-10	-69	-5	-56	3	-21	10"
+
 m2="24	52	55	-34	-9	74	-79	-78	5	-42	48	-53	-77	47	-53	97	-72	20	77	-28
 -66	-54	72	-46	-25	53	-95	-3	-75	-62	92	-43	-57	0	78	-63	-90	12	-60	-77
 65	43	-17	65	25	-77	57	27	71	98	83	53	28	-87	-56	-20	67	-3	-16	-61
@@ -416,6 +448,7 @@ m2="24	52	55	-34	-9	74	-79	-78	5	-42	48	-53	-77	47	-53	97	-72	20	77	-28
 19	12	55	6	-90	-60	1	26	64	-29	62	96	89	11	-77	-26	76	-62	-48	-36
 -76	-21	-93	85	-5	-99	41	-74	47	1	-44	47	16	83	30	-38	33	-53	80	-11
 94	20	-76	-25	17	-5	3	-78	92	-33	-13	14	85	-52	-55	5	75	-89	9	-16"
+
 m3="92	138	33	61	-106	118	-11	-176	75	-107	117	41	-82	-37	-50	180	-1	51	67	-28
 -148	20	-15	48	31	80	-140	-48	-63	-137	16	-43	-15	-76	153	-49	-69	-18	27	-85
 7	105	61	135	82	-170	59	-55	69	43	129	121	126	-178	-16	53	-20	-48	42	17
@@ -437,27 +470,29 @@ m3="92	138	33	61	-106	118	-11	-176	75	-107	117	41	-82	-37	-50	180	-1	51	67	-28
 -168	54	-2	-12	14	-23	74	-54	37	-79	-64	50	114	48	105	-66	-15	-126	12	61
 111	65	-33	-115	5	-1	89	-127	180	-125	26	-4	90	-62	-124	0	19	-86	-12	-6"
 
-echo "$m1" > ${tmp[0]}
-echo "$m2" > ${tmp[1]}
+echo "$m1" > "$tmp1"
+echo "$m2" > "$tmp2"
 
 
-[[ "$m3" == "$(./matrix add ${tmp[0]} ${tmp[1]})" ]]
+[[ "$m3" == "$(./matrix add $tmp1 $tmp2)" ]]
 result "m1 + m2 == m3 (hardcoded matrix)" 15
+
+###############################################################################
 
 unit "matrix multiply test"
 
 m1="$(generate 10 10 d)"
 m2="$(generate 10 15 100)"
 
-echo "$m1" > ${tmp[0]}
-echo "$m2" > ${tmp[1]}
+echo "$m1" > "$tmp1"
+echo "$m2" > "$tmp2"
 
-[[ "$m2" == "$(./matrix multiply ${tmp[0]} ${tmp[1]})" ]]
+[[ "$m2" == "$(./matrix multiply $tmp1 $tmp2)" ]]
 result "I * M == M" 5
 
 m2="$(generate 15 10 100)"
-echo "$m2" > ${tmp[1]}
-[[ "$m2" == "$(./matrix multiply ${tmp[1]} ${tmp[0]})" ]]
+echo "$m2" > "$tmp2"
+[[ "$m2" == "$(./matrix multiply $tmp2 $tmp1)" ]]
 result "M * I == M" 5
 
 
@@ -465,10 +500,10 @@ m1="$(generate 30 14 z)"
 m2="$(generate 14 12 60)"
 m3="$(generate 30 12 z)"
 
-echo "$m1" > ${tmp[0]}
-echo "$m2" > ${tmp[1]}
+echo "$m1" > "$tmp1"
+echo "$m2" > "$tmp2"
 
-[[ "$m3" == "$(./matrix multiply ${tmp[0]} ${tmp[1]})" ]]
+[[ "$m3" == "$(./matrix multiply $tmp1 $tmp2)" ]]
 result "0 * M == 0" 5
 
 
@@ -550,17 +585,20 @@ m3="22965	9925	9346	19084	-9241	-22200	-36903	4840	-17439	-3760	-35169	5378	1260
 -20432	7774	7523	-15477	5045	-21824	847	17301	15529	-18691	-616	-18991	12855	-13920	-29755	5548	-10819	-21413	-15771	-3257	5292	8643	15855	10524	-697
 -7616	14863	3840	-4490	17884	34495	2052	-19149	9604	39327	-1303	-14717	15286	-11968	8785	-20204	-4881	-3407	26948	-9991	7408	39516	-44128	22859	22855"
 
-echo "$m1" > ${tmp[0]}
-echo "$m2" > ${tmp[1]}
+echo "$m1" > "$tmp1"
+echo "$m2" > "$tmp2"
 
-[[ "$m3" == "$(./matrix multiply ${tmp[0]} ${tmp[1]})" ]]
+[[ "$m3" == "$(./matrix multiply $tmp1 $tmp2)" ]]
 result "m3 == m1 * m2 (hardcoded matrix)" 20
 
 comment "Final grade: $score/$total"
-for f in ${tmp[@]}
+
+# Remove temp files
+for f in $tmp{1..4}
 do
-  rm -f $f
+  rm "$f"
 done
+
 exit $score
 echo
 echo

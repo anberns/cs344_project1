@@ -17,7 +17,6 @@ trap "rm -f {$matrix1,$rows,$cols,$rows2,$cols2,$temp,$temp2,$temp3}; echo 'sign
 MatrixSource() {
 	if [ -z "$1" ]
 	then
-		echo "Enter your matrix. Hit CTRL-D when done."
 		cat > "$matrix1"
 	else
 		cat $1 > "$matrix1"
@@ -31,6 +30,10 @@ errHand1() {
 	then
 		echo "too many arguments" 1>&2
 		exit 1	
+	elif ! [ -r $1 ]
+	then
+		echo "unreadable file" 1>&2
+		exit 1
 	elif ! [ -f "$1" ]
 	then
 		if ! [ -z "$1" ]
@@ -38,6 +41,13 @@ errHand1() {
 			echo "invalid file name" 1>&2
 			exit 1
 		fi
+	fi
+
+	if [ -f "$1" ]
+	then
+		# remove blank line(s), help from serverfault.com/questions/
+		# 252921
+		sed -i '/^$/d' $1
 	fi
 }
 
@@ -205,6 +215,14 @@ add() {
 	then
 		echo "incorrect number of arguments" 1>&2
 		exit 1
+	elif ! [ -r $1 ]
+	then
+		echo "unreadable file" 1>&2
+		exit 1
+	elif ! [ -r $2 ]
+	then
+		echo "unreadable file" 1>&2
+		exit 1
 	elif ! [ -f $1 ]
 	then
 		echo "1st file name incorrect" 1>&2
@@ -214,6 +232,11 @@ add() {
 		echo "2st file name incorrect" 1>&2
 		exit 1
 	fi
+
+	# remove blank line(s), help from serverfault.com/questions/
+	# 252921
+	sed -i '/^$/d' $1
+	sed -i '/^$/d' $2
 
 	# check dimensions
 	while read myLine
@@ -227,17 +250,17 @@ add() {
 		(( cols++ ))
 	done
 
-	while read myLine
+	while read myLine2
 	do
 		(( rows2++ ))
 	done < $2
 
-	read oneLine < $2
-	for i in $oneLine
+	read oneLine2 < $2
+	for i in $oneLine2
 	do
 		(( cols2++ ))
 	done
-	if [ $rows -ne $rows2 ] || [ $cols -ne $cols2 ]
+	if [ $rows != $rows2 ] || [ $cols != $cols2 ]
 	then
 		echo "incompatible dimensions" 1>&2
 		exit 1
@@ -256,6 +279,7 @@ add() {
 		do
 			add1=$( cut -f $i $temp )  
 			add2=$( cut -f $i $temp2)			
+			
 			if [ $i -ne $cols ]
 			then
 				printf "%s\t" $(( $add1 + $add2 )) >> $temp3
@@ -278,6 +302,14 @@ multiply() {
 	then
 		echo "incorrect number of arguments" 1>&2
 		exit 1
+	elif ! [ -r $1 ]
+	then
+		echo "unreadable file" 1>&2
+		exit 1
+	elif ! [ -r $2 ]
+	then
+		echo "unreadable file" 1>&2
+		exit 1
 	elif ! [ -f $1 ]
 	then
 		echo "1st file name incorrect" 1>&2
@@ -287,6 +319,11 @@ multiply() {
 		echo "2st file name incorrect" 1>&2
 		exit 1
 	fi
+
+	# remove blank line(s), help from serverfault.com/questions/
+	# 252921
+	sed -i '/^$/d' $1
+	sed -i '/^$/d' $2
 
 	# check dimensions
 	while read myLine
@@ -310,7 +347,7 @@ multiply() {
 	do
 		(( cols2++ ))
 	done
-	if [ $rows -ne $cols2 ] || [ $cols -ne $rows2 ]
+	if [ $cols -ne $rows2 ]
 	then
 		echo "incompatible dimensions" 1>&2
 		exit 1
@@ -383,7 +420,13 @@ multiply() {
 }
 	
 # call appropriate function
-$1 "${@:2}"
+if [ $1 != "dims" ] && [ $1 != "transpose" ] && [ $1 != "mean" ] && [ $1 != "add" ] && [ $1 != "multiply" ]
+then
+	echo "bad command" 1>&2
+	exit 1
+else
+	$1 "${@:2}"
+fi
 
 # delete temp files
 rm -f {$matrix1,$rows,$cols,$rows2,$cols2,$temp,$temp2,$temp3}
