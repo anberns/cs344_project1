@@ -1,57 +1,68 @@
 #!/bin/bash
 
+###############################################################################
+# matrix program for project 1
+# Aaron Berns
+# 1/15/18
+###############################################################################
+
 # global variables
-matrix1="tempMatrix$$"
-rows="tempRows$$"
-cols="tempCols$$"
-rows2="tempRows2$$"
-cols2="tempCols2$$"
+matrix1="tempMatrix$$" # holds matrix data for one matrix operations
+rows="tempRows$$" # first matrix rows
+cols="tempCols$$" # first matrix columns
+rows2="tempRows2$$" # second matrix rows
+cols2="tempCols2$$" # second matrix columns
+
+# temp files for various uses
 temp="temp$$"
 temp2="temp2$$"
 temp3="temp3$$"
 
-# trap signals
+# trap signals 
 trap "rm -f {$matrix1,$rows,$cols,$rows2,$cols2,$temp,$temp2,$temp3}; echo 'signal trapped'; exit 1" INT HUP TERM
 
-# read matrix from file or stdin
+###############################################################################
+# MatrixSource() is called by single matrix operation functions to read from
+# stdin or from a file passed as an argument
+###############################################################################
 MatrixSource() {
-	if [ -z "$1" ]
+	if [ -z "$1" ] # no file passed
 	then
+		# grab matrix from stdin
 		cat > "$matrix1"
 	else
+		# save data from input file
 		cat $1 > "$matrix1"
 	fi
 }
 
-# error handling for one arg functions, help from stack overflow with
-# -f, -z testing flags
+###############################################################################
+# errHand1() is called by single matrix operation functions to check for too
+# many arguments, unreadable files and arguments that are not real file names
+# help from stack overflow with -f, -z testing flags
+###############################################################################
 errHand1() {
-	if [ -f "$2" ]
+	if [ -f "$2" ] # second file passed
 	then
 		echo "too many arguments" 1>&2
 		exit 1	
-	elif ! [ -r $1 ]
+	elif ! [ -r $1 ] # file without read permission
 	then
 		echo "unreadable file" 1>&2
 		exit 1
-	elif ! [ -f "$1" ]
+	elif ! [ -f "$1" ] # first argument is not a valid file name
 	then
-		if ! [ -z "$1" ]
+		if ! [ -z "$1" ] # and first argument is not empty
 		then
 			echo "invalid file name" 1>&2
 			exit 1
 		fi
 	fi
-
-	if [ -f "$1" ]
-	then
-		# remove blank line(s), help from serverfault.com/questions/
-		# 252921
-		sed -i '/^$/d' $1
-	fi
 }
 
-# Dims function
+###############################################################################
+# dims() calculates and prints the number of rows and columns of a matrix 
+###############################################################################
 dims() {
 	# check for errors
 	errHand1 $1 $2
@@ -59,76 +70,73 @@ dims() {
 	# check for file or stdin
 	MatrixSource $1	
 
-	# get rows
+	# get rows by counting the lines read
 	while read myLine
 	do
 		(( rows++ ))
 	done < $matrix1
 
-	# get cols
+	# get columnss by counting elements in a line
 	read oneLine < $matrix1
 	for i in $oneLine
 	do
 		(( cols++ ))
 	done
 
-	# print
+	# print to temp file and display
 	printf "%s %s\n" $rows $cols >> $temp2
 	cat $temp2
 }
 
-# transpose function
+###############################################################################
+# transpose() takes a matrix, cuts each column and makes it a row, transposing
+# the matrix
+###############################################################################
 transpose() {
-	# check for errors
-	errHand1 $1 $2
 	
-	# check for file or stdin
-	MatrixSource $1	
-
-	# get dimensions
-	while read myLine
-	do
-		(( rows++ ))
-	done < $matrix1
-
-	read oneLine < $matrix1
-	for i in $oneLine
-	do
-		(( cols++ ))
-	done
-
+	# get dimensions, check for errors 
+	# send output to /dev/null, clear $temp2
+	dims $1 > /dev/null
+	echo -n > $temp2
+		
 	#transpose
 	i=0
 	j=0
-	curr=1
-	next=$(($cols))
+	curr=1 # holds the current element to be cut
+	next=$(($cols)) # holds number of columns to add to current position 
 
+	# create a single line so that elements can be cut by position
 	cat $matrix1 | tr '\n' '\t' > $temp
-	#cat $temp
+
+	# nested loop that cuts the first element from each row and appends to
+	# a new row so that first column is new first row, then does the same
+	# for second column to the nth column
 	while test $i -ne $cols
 	do
 		while test $j -ne $rows
 		do
-			cut -f $curr $temp > $temp3
-			cat $temp3 >> $temp2
-			#echo  -e -n "\t" >> $temp2
+			cut -f $curr $temp > $temp3 
+			cat $temp3 >> $temp2 # add to single column file
 			(( j++ ))
-			curr=$(($curr + $next))
+			curr=$(($curr + $next)) # skip to next row position
 		done
 		j=0
 		(( i++ ))
-		curr=$(($i + 1))
+		curr=$(($i + 1)) # move to next column and repeat
 	done
-	cat $temp2 | tr '\n' '\t' > $temp
+	cat $temp2 | tr '\n' '\t' > $temp # turn single column into single row
 	echo -n "" > $temp2 # output file
-	m=1
-	read anotherLine < $temp
+	m=1 # count variable
+	read anotherLine < $temp # read entire matrix stored in single row
 	for k in $anotherLine
 	do
+		# if count variable m reaches number of rows, which is now columns
+		# start a new line
 		if [ $m -eq $rows ]
 		then
 			printf "%s\n" $k >> $temp2
-			m=1
+			m=1 # reset count variable
+		# tabs between elements
 		else
 			printf "%s\t" $k >> $temp2
 			(( m++ ))
@@ -137,34 +145,24 @@ transpose() {
 	cat $temp2
 }
 
-# mean function
+###############################################################################
+# mean() calculates the mean of each column of a matrix by transposing it and 
+# displays it as as a row vector 
+###############################################################################
 mean() {
-	# check for errors
-	errHand1 $1 $2
-	
-	# check for file or stdin
-	MatrixSource $1	
+		
+	# get dimensions, check for errors 
+	# send output to /dev/null, clear $temp2
+	dims $1 > /dev/null
+	echo -n > $temp2
 
-	# get transpose in single line
-	while read myLine
-	do
-		(( rows++ ))
-	done < $matrix1
-
-	read oneLine < $matrix1
-	for i in $oneLine
-	do
-		(( cols++ ))
-	done
-
-	#transpose
+	# transpose
 	i=0
 	j=0
 	curr=1
 	next=$(($cols))
 
 	cat $matrix1 | tr '\n' '\t' > $temp
-	#cat $temp
 	while test $i -ne $cols
 	do
 		while test $j -ne $rows
@@ -178,28 +176,39 @@ mean() {
 		(( i++ ))
 		curr=$(($i + 1))
 	done
+	
+	# turn single column into single row
 	cat $temp2 | tr '\n' '\t' > $temp
 
 	# process each column
-	m=1
+	m=1 # element count per column 
 	sum=0
-	tCount=0
+	tCount=0 # total element count
 	echo -n "" > $temp2 #output file
 	read aLine < $temp
 	for k in $aLine
 	do
 		(( tCount++ ))
+		
+		# last element in column
 		if [ $m -eq $rows ]
 		then
 			sum=$(( $sum + $k ))
+			
+			# if total count equals number of elements, output final mean and '\n'
 			if [ $tCount -eq $(( $rows * $cols )) ]
 			then
-				printf "%s\n" $(( ($sum + ($rows/2)*( ($sum>0)*2 - 1 )) / $rows )) >> $temp2
+				printf "%s\n" $(( ($sum + ($rows/2)*( ($sum>0)*2 - 1 )) / $rows ))
+				 >> $temp2
+			# if not final mean value, calculate and output with '\t'
 			else
-				printf "%s\t" $(( ($sum + ($rows/2)*( ($sum>0)*2 - 1 )) / $rows )) >> $temp2
+				printf "%s\t" $(( ($sum + ($rows/2)*( ($sum>0)*2 - 1 )) / $rows )) 
+				>> $temp2
+				# reset sum and element counter
 				sum=0
 				m=1
 			fi
+		# continue
 		else
 			sum=$(( $sum + $k ))
 			(( m++ ))
@@ -208,7 +217,10 @@ mean() {
 	cat $temp2
 }
 
-# add function
+###############################################################################
+# add() adds the corresponding elements of two matrices with identical 
+# dimensions and displays a new matrix with the added values 
+###############################################################################
 add() {
 	# check for file errors
 	if [ $# -ne 2 ]
@@ -233,12 +245,7 @@ add() {
 		exit 1
 	fi
 
-	# remove blank line(s), help from serverfault.com/questions/
-	# 252921
-	sed -i '/^$/d' $1
-	sed -i '/^$/d' $2
-
-	# check dimensions
+	# get dimensions
 	while read myLine
 	do
 		(( rows++ ))
@@ -260,6 +267,8 @@ add() {
 	do
 		(( cols2++ ))
 	done
+
+	# check dimensions
 	if [ $rows != $rows2 ] || [ $cols != $cols2 ]
 	then
 		echo "incompatible dimensions" 1>&2
@@ -268,34 +277,44 @@ add() {
 	
 	# add
 	i=1
-	count=0
+	count=0 # keeps track of rows processed
 	sum=0
-	echo -n "" > $temp3
+	echo -n "" > $temp3 # output file
 	while test $count -ne $rows
 	do
+		# get the first of the decreasing group of rows until all values
+		# of both matrices are processed
 		cat $1 | tail -n $(( $rows - $count )) | head -n 1 > $temp
 		cat $2 | tail -n $(( $rows - $count )) | head -n 1 > $temp2
+
+		# loop through and add corresponding elements
 		while test $(( $i -1 )) -ne $cols
 		do
 			add1=$( cut -f $i $temp )  
 			add2=$( cut -f $i $temp2)			
 			
+			# print added values with tabs if not all elements in row
+			# have been processed
 			if [ $i -ne $cols ]
 			then
 				printf "%s\t" $(( $add1 + $add2 )) >> $temp3
 				(( i++ ))
+			# print last added value and '\n'
 			else
 				printf "%s\n" $(( $add1 + $add2 )) >> $temp3
 				(( i++ ))
 			fi
 		done
-		i=1
+		i=1 # reset element position counter
 		(( count++ ))
 	done
 	cat $temp3
 }
 
-# mutliply function
+###############################################################################
+# multiply() takes two matrices and calculates the sum of the dot products of
+# each row / column pairing, displaying a new matrix with product sums 
+###############################################################################
 multiply() {
 	# check for file errors
 	if [ $# -ne 2 ]
@@ -320,11 +339,6 @@ multiply() {
 		exit 1
 	fi
 
-	# remove blank line(s), help from serverfault.com/questions/
-	# 252921
-	sed -i '/^$/d' $1
-	sed -i '/^$/d' $2
-
 	# check dimensions
 	while read myLine
 	do
@@ -347,13 +361,15 @@ multiply() {
 	do
 		(( cols2++ ))
 	done
-	if [ $cols -ne $rows2 ]
+
+	# number of columns in first matrix must equal number of rows in second
+	if [ $cols != $rows2 ]
 	then
 		echo "incompatible dimensions" 1>&2
 		exit 1
 	fi
 	
-	#transpose matrix2
+	#transpose matrix2 so that multiplication is done line by line
 	i=0
 	j=0
 	curr=1
@@ -379,22 +395,36 @@ multiply() {
 	# multiply
 	i=1
 	j=1
-	count=0
-	processed=0	
+	count=0 # row of matrix 1
+	processed=0 # keep track of rows of matrix 2
 	sum=0
-	echo -n "" > $temp2
+	echo -n "" > $temp2 # clear output file
+
+	# mutliply and sum each row of matrix 1 with each column of matrix 2
 	while test $count -ne $rows
 	do
+		# get first of unprocessed rows
 		cat $1 | tail -n $(( $rows - $count )) | head -n 1 > $temp
+
+		# loop through values multiplying and summing
 		while test $(( $j -1 )) -ne $cols2
 		do	
 			while test $(( $i -1 )) -ne $cols
 			do
-				fact1=$( cut -f $i $temp )  
+			
+				# get element from matrix 1  
+				fact1=$( cut -f $i $temp ) 	
+
+				# get element from matrix 2 which has been transposed
+				# into a single line
+				# processed holds number of rows completed and represents
+				# where in the single line the current row is found
 				fact2=$( cut -f $(( $i + ( $processed * $rows2) )) $temp3 )			
 				sum=$(( $sum + $fact1 * $fact2 ))
 				(( i++ ))
 			done
+	
+			# if not last product sum for row, print with '\t'
 			if [ $(( $processed + 1 )) -ne $cols2 ]
 			then
 				printf "%s\t" $sum >> $temp2
@@ -402,6 +432,8 @@ multiply() {
 				sum=0
 				(( processed++ ))
 				(( j++ ))
+			
+			# print '\n' at end of row
 			else
 				printf "%s\n" $sum >> $temp2
 				i=1
@@ -410,6 +442,8 @@ multiply() {
 				(( j++ ))
 			fi
 		done
+		
+		# reset variables for next iteration
 		i=1
 		j=1
 		processed=0
@@ -419,8 +453,9 @@ multiply() {
 	cat $temp2
 }
 	
-# call appropriate function
-if [ $1 != "dims" ] && [ $1 != "transpose" ] && [ $1 != "mean" ] && [ $1 != "add" ] && [ $1 != "multiply" ]
+# check for valid command, call appropriate function if valid
+if [ $1 != "dims" ] && [ $1 != "transpose" ] && [ $1 != "mean" ] &&
+[ $1 != "add" ] && [ $1 != "multiply" ]
 then
 	echo "bad command" 1>&2
 	exit 1
